@@ -2,10 +2,24 @@
 import os,re,sys
 from bs4 import BeautifulSoup 
 import requests
+import threading
 #from threading import Thread, Lock
 #import inspect
 #from collections import deque
 #from Queue import Queue,Empty
+
+
+
+
+class multi_thread(threading.Thread):
+    def __init__(self,url):
+        threading.Thread.__init__(self)
+        self.url=url
+        
+
+    def run(self):
+        main(self.url)
+
 
 def parse_url(func):
     def _parse(*args):
@@ -57,6 +71,8 @@ def get_chapts_links(url):
     s=soup.find_all('table',cellspacing="1")
     if len(s)>1:
         sour=s[1]
+    elif len(s)==0:
+        return ['']
     else:
         sour=s[0]
     links=[]
@@ -67,7 +83,7 @@ def get_chapts_links(url):
     return  fi
 
 def get_text(url):
-    res=requests.get(url,timeout=10)
+    res=requests.get(url,timeout=100)
     res.encoding='gb2312'
     page=re.sub('&nbsp;',' ',res.text)
     soup=BeautifulSoup(page)
@@ -88,7 +104,12 @@ def download(url):
                 book=head+books_url[book]
                 print 'book:'+book+'\n'
                 chapts=get_chapts_links(book)
+                if book.endswith('index.html'):
+                    book=re.sub('index.html','',book)
+                if book.endswith('.html'):
+                    book=re.sub('.html','/',book)
                 for chapt in chapts:
+                    chapt=chapt[chapt.find('/')+1:]
                     chapt=book+chapt
                     print chapt
                     text=get_text(chapt)
@@ -100,14 +121,20 @@ def prints(url):
 url="http://book.kanunu.org/files/writer/18-%d.html"
 urls=[url%i for i in range(1,15)]
 
+def main(url):
+    print url
+    authors=get_author_links(url)
+    for url in authors:
+        url=head+url
+        print 'url:'+url
+        download(url)
+
 if __name__=='__main__':
     for url in urls:
-        print url
-        authors=get_author_links(url)
-        for url in authors:
-            url=head+url
-            print 'url:'+url
-            download(url)
+        th=multi_thread(url)
+        th.start()
+    for i in range(len(urls)):
+        th.join()
 
 
 
